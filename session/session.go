@@ -24,7 +24,7 @@ const (
 	NodeTypeMeta    NodeType = "meta"
 	NodeTypeReplica NodeType = "replica"
 
-	kDialInterval = time.Second * 60
+	kDialInterval = time.Second * 5
 )
 
 // NodeSession represents the network session to a node
@@ -150,9 +150,10 @@ func (n *nodeSession) tryDial() {
 // loopForResponse which handle the data communications.
 // If the last attempt failed, it will retry again.
 func (n *nodeSession) dial() {
-	if time.Now().Sub(n.lastDialTime) < kDialInterval {
+	dur := time.Now().Sub(n.lastDialTime)
+	if dur < kDialInterval {
 		select {
-		case <-time.After(kDialInterval):
+		case <-time.After(kDialInterval - dur):
 		case <-n.tom.Dying():
 			return
 		}
@@ -266,15 +267,21 @@ func (n *nodeSession) waitUntilSessionReady(ctx context.Context) error {
 		var ready bool
 		ticker := time.NewTicker(100 * time.Millisecond)
 		for {
-
 			breakLoop := false
 			select {
 			case <-ctx.Done():
 				breakLoop = true
 			case <-ticker.C:
-				if n.ConnState() == rpc.ConnStateReady {
+				switch n.ConnState() {
+				case rpc.ConnStateReady:
 					ready = true
 					breakLoop = true
+				case rpc.ConnStateClosed:
+					breakLoop = true
+				case rpc.ConnStateTransientFailure:
+					if time.Now().Sub(n.lastDialTime) > kDialInterval {
+						n.tryDial()
+					}
 				}
 			}
 

@@ -18,8 +18,8 @@ import (
 const (
 	RpcConnKeepAliveInterval = time.Second * 30
 	RpcConnDialTimeout       = time.Second * 3
-	RpcConnReadTimeout       = time.Second
-	RpcConnWriteTimeout      = time.Second
+	RpcConnReadTimeout       = time.Second * 3
+	RpcConnWriteTimeout      = time.Second * 3
 )
 
 type ConnState int
@@ -112,7 +112,7 @@ func (rc *RpcConn) TryConnect() (err error) {
 				return err
 			}
 			tcpConn, _ := rc.conn.(*net.TCPConn)
-			tcpConn.SetNoDelay(true)
+			_ = tcpConn.SetNoDelay(true)
 			rc.setReady(rc.conn, rc.conn)
 		}
 		return err
